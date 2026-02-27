@@ -1,0 +1,13 @@
+{
+    "redditSubreddits": [
+        "memes",
+        "dankmemes"
+    ],
+    "twitterAccounts": [
+        "your_twitter_handle"
+    ],
+    "twitterCheckMultiplier": 6,
+    "checkIntervalMinutes": 10,
+    "whatsappGroupName": "Your Group Name",
+    "maxPostsPerCheck": 3
+}
