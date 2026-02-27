@@ -236,22 +236,19 @@ export async function fetchTikTokMemes(keywords) {
 export async function fetchAllMemes(config, cycleCount) {
     let allMemes = [];
 
-    // 1. Reddit (Runs every cycle)
+    // 1. TikTok (Runs every cycle)
+    if (config.tiktokKeywords?.length > 0) {
+        console.log(`\n🎵 TikTok cycle (every cycle)`);
+        const tiktokMemes = await fetchTikTokMemes(config.tiktokKeywords);
+        allMemes = allMemes.concat(tiktokMemes);
+    }
+
+    // 2. Reddit (Runs every cycle)
     if (config.redditSubreddits?.length > 0) {
         for (const sub of config.redditSubreddits) {
             const memes = await fetchRedditMemes(sub);
             allMemes = allMemes.concat(memes);
         }
-    }
-
-    // 2. TikTok (Runs every configured cycle)
-    const tiktokFreq = config.tiktokCheckMultiplier || 3;
-    if (config.tiktokKeywords?.length > 0 && cycleCount % tiktokFreq === 0) {
-        console.log(`\n🎵 TikTok cycle (every ${tiktokFreq} checks)`);
-        const tiktokMemes = await fetchTikTokMemes(config.tiktokKeywords);
-        allMemes = allMemes.concat(tiktokMemes);
-    } else if (config.tiktokKeywords?.length > 0) {
-        console.log(`   ⏭️  Skipping TikTok this cycle (next in ${tiktokFreq - (cycleCount % tiktokFreq)} cycles)`);
     }
 
     // 3. Twitter via Xpoz (every Nth cycle to save credits)
@@ -268,6 +265,6 @@ export async function fetchAllMemes(config, cycleCount) {
         }
     }
 
-    // Shuffle results so we get a good mix of sources
-    return allMemes.sort(() => Math.random() - 0.5);
+    // Return without shuffling so TikTok stays in front
+    return allMemes;
 }
