@@ -6,7 +6,7 @@ import "dotenv/config";
 import cron from "node-cron";
 import { readFileSync } from "fs";
 import { fetchAllMemes } from "./fetcher.js";
-import { downloadMedia, cleanupFile, buildFilename } from "./downloader.js";
+import { downloadMedia, downloadVideoWithAudio, cleanupFile, buildFilename } from "./downloader.js";
 import { loadStore, isPosted, markPosted } from "./store.js";
 import { initClient, sendMediaToStatus } from "./whatsapp.js";
 
@@ -31,7 +31,7 @@ async function runMemeCycle(store) {
     cycleCount++;
 
     // 2. Filter out already-posted memes
-    const newMemes = memes.filter((m) => !isPosted(store, m.tweetId));
+    const newMemes = memes.filter((m) => !isPosted(store, m.tweetId, m.media));
     console.log(`\n🆕 ${newMemes.length} new memes found (${memes.length} total fetched)\n`);
 
     if (newMemes.length === 0) {
@@ -47,11 +47,18 @@ async function runMemeCycle(store) {
         console.log(`\n🎯 Processing meme ${meme.tweetId} from ${meme.account}`);
 
         for (let i = 0; i < meme.media.length; i++) {
-            const { url, type } = meme.media[i];
+            const { url, type, audioUrl } = meme.media[i];
             const filename = buildFilename(meme.tweetId, i, type);
 
             try {
-                const filePath = await downloadMedia(url, filename);
+                // Use audio-merging download for Reddit videos with audio
+                let filePath;
+                if (type === "video" && audioUrl) {
+                    filePath = await downloadVideoWithAudio(url, audioUrl, filename);
+                    if (!filePath) continue; // skip silent videos
+                } else {
+                    filePath = await downloadMedia(url, filename);
+                }
 
                 // Build a caption
                 const caption = `😂 ${meme.text.slice(0, 200)}`;
@@ -70,7 +77,7 @@ async function runMemeCycle(store) {
         }
 
         // Mark as posted so we don't send it again
-        markPosted(store, meme.tweetId);
+        markPosted(store, meme.tweetId, meme.media);
     }
 
     console.log(`\n✅ Cycle complete. Posted ${toPost.length} memes.\n`);
@@ -92,7 +99,7 @@ async function main() {
 
     // Load the posted-memes store
     const store = loadStore();
-    console.log(`📦 Store loaded: ${store.size} previously posted memes\n`);
+    console.log(`📦 Store loaded: ${store.ids.size} previously posted memes (${store.urls.size} tracked URLs)\n`);
 
     // Initialise WhatsApp (skip in dry-run)
     if (!DRY_RUN) {

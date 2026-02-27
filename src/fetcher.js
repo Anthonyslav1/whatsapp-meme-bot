@@ -27,9 +27,13 @@ function extractRedditMedia(post) {
         media.push({ url, type: "video" });
     }
 
-    // Reddit-hosted video
+    // Reddit-hosted video (video-only, audio is separate)
     if (post.is_video && post.media?.reddit_video?.fallback_url) {
-        media.push({ url: post.media.reddit_video.fallback_url, type: "video" });
+        const videoUrl = post.media.reddit_video.fallback_url;
+        // Audio is always at the same base path
+        const baseUrl = videoUrl.replace(/\/DASH_\d+\.mp4.*/, "");
+        const audioUrl = `${baseUrl}/DASH_AUDIO_128.mp4`;
+        media.push({ url: videoUrl, type: "video", audioUrl });
     }
 
     // Reddit preview images (fallback if no direct link)
@@ -121,19 +125,30 @@ export async function fetchTwitterMemes(accounts) {
     const client = new XpozClient({ apiKey });
     const allMemes = [];
 
+    // Helper: race a promise against a timeout
+    const withTimeout = (promise, ms, label) =>
+        Promise.race([
+            promise,
+            new Promise((_, reject) =>
+                setTimeout(() => reject(new Error(`Timeout after ${ms / 1000}s: ${label}`)), ms)
+            ),
+        ]);
+
     try {
-        await client.connect();
+        await withTimeout(client.connect(), 30000, "Xpoz connect");
 
         for (const account of accounts) {
             console.log(`📡 Fetching Twitter via Xpoz: @${account}`);
             try {
-                // Use searchPosts with from: filter (more reliable than getPostsByAuthor)
-                const results = await client.twitter.searchPosts(`from:${account} has:media`, {
-                    fields: ["id", "text", "authorUsername", "mediaUrls"],
-                });
+                const results = await withTimeout(
+                    client.twitter.searchPosts(`from:${account}`, {
+                        fields: ["id", "text", "authorUsername", "mediaUrls"],
+                    }),
+                    15000,
+                    `@${account}`
+                );
 
                 for (const post of results.data) {
-                    // Skip posts without media
                     if (!post.mediaUrls || post.mediaUrls.length === 0) continue;
 
                     const media = post.mediaUrls.map(url => ({
