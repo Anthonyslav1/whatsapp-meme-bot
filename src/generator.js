@@ -6,7 +6,7 @@ import { downloadMedia } from "./downloader.js";
 import path from "path";
 import crypto from "crypto";
 
-const POLLINATIONS_BASE = "https://image.pollinations.ai/prompt";
+const POLLINATIONS_BASE = "https://pollinations.ai/p";
 
 /**
  * Generate an original meme using AI.
@@ -73,7 +73,7 @@ Return ONLY valid JSON array, no markdown:
 
     try {
         const response = await ai.models.generateContent({
-            model: "gemini-2.0-flash",
+            model: "gemini-2.5-flash",
             contents: prompt,
         });
 
