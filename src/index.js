@@ -59,7 +59,8 @@ async function runMemeCycle(store) {
         // AI memes already have a downloaded image
         if (meme.localPath) {
             try {
-                const caption = `😂 ${meme.text.slice(0, 200)}`;
+                const cleanText = meme.text.replace(/#[^\s#]+/g, "").replace(/\s{2,}/g, " ").trim();
+                const caption = `😂 ${cleanText.slice(0, 200)}`;
                 if (DRY_RUN) {
                     console.log(`   [DRY-RUN] Would post AI meme to Status: ${caption.slice(0, 80)}...`);
                 } else {
@@ -87,8 +88,9 @@ async function runMemeCycle(store) {
                     filePath = await downloadMedia(url, filename);
                 }
 
-                // Build a caption
-                const caption = `😂 ${meme.text.slice(0, 200)}`;
+                // Build a caption without hashtags
+                const cleanText = meme.text.replace(/#[^\s#]+/g, "").replace(/\s{2,}/g, " ").trim();
+                const caption = `😂 ${cleanText.slice(0, 200)}`;
 
                 if (DRY_RUN) {
                     console.log(`   [DRY-RUN] Would post to Status: ${caption.slice(0, 80)}...`);
