@@ -117,8 +117,8 @@ async function main() {
     console.log("╚═══════════════════════════════════════╝\n");
     console.log(`📋 Config:`);
     console.log(`   Reddit subs     : ${(config.redditSubreddits || []).map(s => "r/" + s).join(", ") || "none"}`);
-    console.log(`   Twitter accounts: ${(config.twitterAccounts || []).map(a => "@" + a).join(", ") || "none"}`);
-    console.log(`   Twitter freq    : every ${config.twitterCheckMultiplier || 6} cycles`);
+    console.log(`   TikTok keywords : ${(config.tiktokKeywords || []).map(k => '"' + k + '"').join(", ") || "none"}`);
+    console.log(`   TikTok freq     : every ${config.tiktokCheckMultiplier || 3} cycles`);
     console.log(`   Check interval  : every ${config.checkIntervalMinutes} minutes`);
     console.log(`   WhatsApp group  : "${config.whatsappGroupName}"`);
     console.log(`   Max posts/check : ${config.maxPostsPerCheck}`);

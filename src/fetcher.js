@@ -177,39 +177,95 @@ export async function fetchTwitterMemes(accounts) {
     return allMemes;
 }
 
-// ── Combined fetcher ─────────────────────────────────────────
+/**
+ * Fetch memes from TikTok using a free public scraper API (TikWM).
+ * This returns watermark-free videos based on search keywords.
+ * @param {string[]} keywords - List of search queries
+ * @returns {Promise<object[]>}
+ */
+export async function fetchTikTokMemes(keywords) {
+    const allMemes = [];
+    if (!keywords || keywords.length === 0) return allMemes;
+
+    for (const keyword of keywords) {
+        console.log(`📡 Searching TikTok: "${keyword}"`);
+        try {
+            // Unofficial free TikTok search API
+            const res = await fetch(`https://tikwm.com/api/feed/search?keywords=${encodeURIComponent(keyword)}&count=10`, {
+                headers: { "User-Agent": "Mozilla/5.0" }
+            });
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+            const json = await res.json();
+            if (json.code !== 0 || !json.data || !json.data.videos) continue;
+
+            for (const video of json.data.videos) {
+                // Must have a watermark-free play URL
+                if (!video.play) continue;
+
+                // WhatsApp Status has a hard 30-second limit for video. 
+                // Let's filter out anything longer than 29 seconds to be safe.
+                if (video.duration && video.duration > 29) continue;
+
+                allMemes.push({
+                    tweetId: `tiktok_${video.video_id}`,
+                    text: video.title || "",
+                    account: `@${video.author?.unique_id || "tiktok"}`,
+                    media: [
+                        { url: video.play, type: "video" }
+                    ]
+                });
+            }
+            console.log(`   ✅ Found ${json.data.videos.length} TikToks (kept ${allMemes.length} under 30s)`);
+        } catch (err) {
+            console.error(`   ❌ Failed to search TikTok for "${keyword}": ${err.message}`);
+        }
+    }
+
+    return allMemes;
+}
 
 /**
  * Fetch memes from all configured sources.
- * Reddit runs every cycle; Twitter only on every Nth cycle to conserve credits.
  * @param {object} config - Bot config
  * @param {number} cycleCount - Current cycle number (0-indexed)
  * @returns {Promise<Array>}
  */
 export async function fetchAllMemes(config, cycleCount) {
-    const allMemes = [];
+    let allMemes = [];
 
-    // 1. Reddit (every cycle)
-    if (config.redditSubreddits && config.redditSubreddits.length > 0) {
+    // 1. Reddit (Runs every cycle)
+    if (config.redditSubreddits?.length > 0) {
         for (const sub of config.redditSubreddits) {
             const memes = await fetchRedditMemes(sub);
-            allMemes.push(...memes);
+            allMemes = allMemes.concat(memes);
         }
     }
 
-    // 2. Twitter via Xpoz (every Nth cycle to save credits)
-    const multiplier = config.twitterCheckMultiplier || 6;
-    const isTwitterCycle = cycleCount % multiplier === 0;
+    // 2. TikTok (Runs every configured cycle)
+    const tiktokFreq = config.tiktokCheckMultiplier || 3;
+    if (config.tiktokKeywords?.length > 0 && cycleCount % tiktokFreq === 0) {
+        console.log(`\n🎵 TikTok cycle (every ${tiktokFreq} checks)`);
+        const tiktokMemes = await fetchTikTokMemes(config.tiktokKeywords);
+        allMemes = allMemes.concat(tiktokMemes);
+    } else if (config.tiktokKeywords?.length > 0) {
+        console.log(`   ⏭️  Skipping TikTok this cycle (next in ${tiktokFreq - (cycleCount % tiktokFreq)} cycles)`);
+    }
 
-    if (config.twitterAccounts && config.twitterAccounts.length > 0) {
+    // 3. Twitter via Xpoz (every Nth cycle to save credits)
+    const twitterMultiplier = config.twitterCheckMultiplier || 6;
+    const isTwitterCycle = cycleCount % twitterMultiplier === 0;
+
+    if (config.twitterAccounts?.length > 0) {
         if (isTwitterCycle) {
-            console.log(`\n🐦 Twitter cycle (every ${multiplier} checks)`);
+            console.log(`\n🐦 Twitter cycle (every ${twitterMultiplier} checks)`);
             const memes = await fetchTwitterMemes(config.twitterAccounts);
-            allMemes.push(...memes);
+            allMemes = allMemes.concat(memes);
         } else {
-            console.log(`   ⏭️  Skipping Twitter this cycle (next in ${multiplier - (cycleCount % multiplier)} cycles)`);
+            console.log(`   ⏭️  Skipping Twitter this cycle (next in ${twitterMultiplier - (cycleCount % twitterMultiplier)} cycles)`);
         }
     }
 
-    return allMemes;
+    // Shuffle results so we get a good mix of sources
+    return allMemes.sort(() => Math.random() - 0.5);
 }
