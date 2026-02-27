@@ -30,8 +30,10 @@ function extractRedditMedia(post) {
     // Reddit-hosted video (video-only, audio is separate)
     if (post.is_video && post.media?.reddit_video?.fallback_url) {
         const videoUrl = post.media.reddit_video.fallback_url;
-        // Audio is always at the same base path
-        const baseUrl = videoUrl.replace(/\/DASH_\d+\.mp4.*/, "");
+        // Audio is always at the same base path. Use URL object to safely strip filename and query params.
+        const urlObj = new URL(videoUrl);
+        const basePath = urlObj.pathname.substring(0, urlObj.pathname.lastIndexOf("/"));
+        const baseUrl = `${urlObj.origin}${basePath}`;
         const audioUrl = `${baseUrl}/DASH_AUDIO_128.mp4`;
         media.push({ url: videoUrl, type: "video", audioUrl });
     }
