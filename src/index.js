@@ -9,6 +9,7 @@ import { fetchAllMemes } from "./fetcher.js";
 import { downloadMedia, downloadVideoWithAudio, cleanupFile, buildFilename } from "./downloader.js";
 import { loadStore, isPosted, markPosted } from "./store.js";
 import { initClient, sendMediaToStatus } from "./whatsapp.js";
+import { generateAiMeme } from "./generator.js";
 
 // ── Load config ──────────────────────────────────────────────
 const config = JSON.parse(readFileSync("./config.json", "utf-8"));
@@ -34,17 +35,43 @@ async function runMemeCycle(store) {
     const newMemes = memes.filter((m) => !isPosted(store, m.tweetId, m.media));
     console.log(`\n🆕 ${newMemes.length} new memes found (${memes.length} total fetched)\n`);
 
+    // 3. Add AI-generated meme on configured cycles
+    const aiFreq = config.aiMemeFrequency || 3;
+    if (config.enableAiMemes && (cycleCount - 1) % aiFreq === 0) {
+        const aiMeme = await generateAiMeme();
+        if (aiMeme) {
+            newMemes.unshift(aiMeme); // AI meme goes first
+        }
+    }
+
     if (newMemes.length === 0) {
         console.log("😴 Nothing new to post. Waiting for next cycle...\n");
         return;
     }
 
-    // 3. Limit to maxPostsPerCheck
+    // 4. Limit to maxPostsPerCheck
     const toPost = newMemes.slice(0, config.maxPostsPerCheck);
 
-    // 4. Download, post, and clean up each meme
+    // 5. Download, post, and clean up each meme
     for (const meme of toPost) {
         console.log(`\n🎯 Processing meme ${meme.tweetId} from ${meme.account}`);
+
+        // AI memes already have a downloaded image
+        if (meme.localPath) {
+            try {
+                const caption = `😂 ${meme.text.slice(0, 200)}`;
+                if (DRY_RUN) {
+                    console.log(`   [DRY-RUN] Would post AI meme to Status: ${caption.slice(0, 80)}...`);
+                } else {
+                    await sendMediaToStatus(meme.localPath, caption);
+                }
+                cleanupFile(meme.localPath);
+                markPosted(store, meme.tweetId, meme.media);
+            } catch (err) {
+                console.error(`   ❌ Error posting AI meme: ${err.message}`);
+            }
+            continue;
+        }
 
         for (let i = 0; i < meme.media.length; i++) {
             const { url, type, audioUrl } = meme.media[i];
@@ -95,7 +122,9 @@ async function main() {
     console.log(`   Check interval  : every ${config.checkIntervalMinutes} minutes`);
     console.log(`   WhatsApp group  : "${config.whatsappGroupName}"`);
     console.log(`   Max posts/check : ${config.maxPostsPerCheck}`);
-    console.log(`   Xpoz API key    : ${process.env.XPOZ_API_KEY ? "✅ set" : "❌ not set (Twitter disabled)"}\n`);
+    console.log(`   Xpoz API key    : ${process.env.XPOZ_API_KEY ? "✅ set" : "❌ not set (Twitter disabled)"}`);
+    console.log(`   Gemini API key  : ${process.env.GEMINI_API_KEY ? "✅ set" : "❌ not set (AI memes disabled)"}`);
+    console.log(`   AI memes        : ${config.enableAiMemes ? `✅ every ${config.aiMemeFrequency || 3} cycles` : "❌ disabled"}\n`);
 
     // Load the posted-memes store
     const store = loadStore();
