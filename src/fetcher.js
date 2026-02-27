@@ -137,37 +137,36 @@ export async function fetchTwitterMemes(accounts) {
     try {
         await withTimeout(client.connect(), 30000, "Xpoz connect");
 
-        for (const account of accounts) {
-            console.log(`📡 Fetching Twitter via Xpoz: @${account}`);
-            try {
-                const results = await withTimeout(
-                    client.twitter.searchPosts(`from:${account}`, {
-                        fields: ["id", "text", "authorUsername", "mediaUrls"],
-                    }),
-                    15000,
-                    `@${account}`
-                );
+        // Single keyword search (more reliable than per-account from: queries)
+        console.log(`📡 Searching Twitter via Xpoz: "nigeria meme funny"`);
+        try {
+            const results = await withTimeout(
+                client.twitter.searchPosts("nigeria meme funny", {
+                    fields: ["id", "text", "authorUsername", "mediaUrls"],
+                }),
+                20000,
+                "meme search"
+            );
 
-                for (const post of results.data) {
-                    if (!post.mediaUrls || post.mediaUrls.length === 0) continue;
+            for (const post of results.data) {
+                if (!post.mediaUrls || post.mediaUrls.length === 0) continue;
 
-                    const media = post.mediaUrls.map(url => ({
-                        url,
-                        type: /\.(mp4|webm)/i.test(url) ? "video" : "image",
-                    }));
+                const media = post.mediaUrls.map(url => ({
+                    url,
+                    type: /\.(mp4|webm)/i.test(url) ? "video" : "image",
+                }));
 
-                    allMemes.push({
-                        tweetId: `twitter_${post.id}`,
-                        text: post.text || "",
-                        account: `@${post.authorUsername || account}`,
-                        media,
-                    });
-                }
-
-                console.log(`   ✅ Found ${allMemes.length} media tweets from @${account}`);
-            } catch (err) {
-                console.error(`   ❌ Failed to fetch @${account}: ${err.message}`);
+                allMemes.push({
+                    tweetId: `twitter_${post.id}`,
+                    text: post.text || "",
+                    account: `@${post.authorUsername || "twitter"}`,
+                    media,
+                });
             }
+
+            console.log(`   ✅ Found ${allMemes.length} media tweets`);
+        } catch (err) {
+            console.error(`   ❌ Twitter search failed: ${err.message}`);
         }
     } catch (err) {
         console.error(`   ❌ Xpoz connection error: ${err.message}`);
