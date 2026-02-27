@@ -59,7 +59,7 @@ async function runMemeCycle(store) {
         // AI memes already have a downloaded image
         if (meme.localPath) {
             try {
-                const cleanText = meme.text.replace(/#[^\s#]+/g, "").replace(/\s{2,}/g, " ").trim();
+                const cleanText = meme.text.replace(/[#@][^\s#@]+/g, "").replace(/\s{2,}/g, " ").trim();
                 const caption = `😂 ${cleanText.slice(0, 200)}`;
                 if (DRY_RUN) {
                     console.log(`   [DRY-RUN] Would post AI meme to Status: ${caption.slice(0, 80)}...`);
@@ -89,7 +89,7 @@ async function runMemeCycle(store) {
                 }
 
                 // Build a caption without hashtags
-                const cleanText = meme.text.replace(/#[^\s#]+/g, "").replace(/\s{2,}/g, " ").trim();
+                const cleanText = meme.text.replace(/[#@][^\s#@]+/g, "").replace(/\s{2,}/g, " ").trim();
                 const caption = `😂 ${cleanText.slice(0, 200)}`;
 
                 if (DRY_RUN) {
